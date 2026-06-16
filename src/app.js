@@ -298,16 +298,21 @@ function commentsTemplate(messageId) {
         state.user
           ? `
             <form class="comment-form">
-              <input type="text" data-role="comment-input" maxlength="280" placeholder="Reply to this signal" />
-              <div class="comment-tools">
-                <input type="url" data-role="comment-image-url" placeholder="Image URL (optional)" />
-                <input type="url" data-role="comment-video-url" placeholder="YouTube link (optional)" />
-                <label class="button file-input">
-                  <span>Attach image</span>
-                  <input type="file" data-role="comment-file" accept="image/*" />
-                </label>
+              <div class="comment-grid">
+                <textarea data-role="comment-input" maxlength="280" placeholder="Reply to this signal"></textarea>
+                <div class="comment-fields">
+                  <input type="url" data-role="comment-image-url" placeholder="Image URL (optional)" />
+                  <input type="url" data-role="comment-video-url" placeholder="YouTube link (optional)" />
+                  <label class="button file-input">
+                    <span>Attach image</span>
+                    <input type="file" data-role="comment-file" accept="image/*" />
+                  </label>
+                </div>
               </div>
-              <button class="button primary" type="submit" data-action="send-comment">Reply</button>
+              <div class="comment-actions">
+                <button class="button primary" type="submit" data-action="send-comment">Reply</button>
+                <button class="button" type="button" data-action="cancel-comment">Cancel</button>
+              </div>
             </form>
           `
           : ""
@@ -424,6 +429,13 @@ function bindFeed() {
 
     if (action === "delete-comment") {
       await deleteComment(comment.dataset.commentId);
+    }
+
+    if (action === "cancel-comment") {
+      const form = event.target.closest(".comment-form");
+      form?.querySelectorAll("input, textarea").forEach((field) => {
+        field.value = "";
+      });
     }
   });
 

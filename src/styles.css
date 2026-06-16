@@ -473,14 +473,34 @@ input[type="text"] {
 
 .comment-form {
   display: grid;
+  gap: 10px;
+}
+
+.comment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.comment-grid textarea {
+  min-height: 132px;
+  height: 100%;
+}
+
+.comment-fields {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.comment-actions {
+  display: flex;
   gap: 8px;
 }
 
-.comment-tools {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: center;
+.comment-actions .button {
+  flex: 1;
 }
 
 .edit-form {
@@ -615,7 +635,7 @@ input[type="text"] {
   }
 
   .composer-tools,
-  .comment-tools {
+  .comment-grid {
     grid-template-columns: 1fr;
   }
 
