@@ -1,0 +1,7 @@
+# Server-side uploaded media (lives on FastComet, not in the repo)
+uploads/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

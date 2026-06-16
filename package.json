@@ -1,0 +1,10 @@
+{
+  "name": "cosmic-compass",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Readable rebuild of the CosmicCompass compiled Firebase social app.",
+  "scripts": {
+    "dev": "python -m http.server 4173",
+    "start": "python -m http.server 4173"
+  }
+}

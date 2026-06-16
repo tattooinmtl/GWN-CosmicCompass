@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="CosmicCompass is a Firebase powered cosmic social feed with live space and quake telemetry."
+    />
+    <title>CosmicCompass</title>
+    <link rel="icon" type="image/png" href="/public/favicon.png" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="splash" class="splash" aria-label="CosmicCompass loading">
+      <canvas id="splash-canvas"></canvas>
+      <div class="splash-mark">
+        <img src="/public/favicon.png" alt="CosmicCompass mark" />
+      </div>
+      <div class="splash-copy">
+        <span>Establishing Quantum Link</span>
+        <strong>CosmicCompass</strong>
+      </div>
+    </div>
+
+    <div id="app"></div>
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
