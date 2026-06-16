@@ -299,6 +299,14 @@ function commentsTemplate(messageId) {
           ? `
             <form class="comment-form">
               <input type="text" data-role="comment-input" maxlength="280" placeholder="Reply to this signal" />
+              <div class="comment-tools">
+                <input type="url" data-role="comment-image-url" placeholder="Image URL (optional)" />
+                <input type="url" data-role="comment-video-url" placeholder="YouTube link (optional)" />
+                <label class="button file-input">
+                  <span>Attach image</span>
+                  <input type="file" data-role="comment-file" accept="image/*" />
+                </label>
+              </div>
               <button class="button primary" type="submit" data-action="send-comment">Reply</button>
             </form>
           `
@@ -310,13 +318,17 @@ function commentsTemplate(messageId) {
 
 function commentTemplate(comment) {
   const ownComment = state.user && state.user.uid === comment.authorUid;
+  const imageUrl = comment.imageUrl || "";
+  const videoUrl = normalizeVideoUrl(comment.videoUrl || "");
   return `
     <div class="comment" data-comment-id="${safeAttr(comment.id)}">
       <div class="comment-head">
         <strong>${escapeHtml(comment.authorName || "Anonymous")}</strong>
         <span>${escapeHtml(formatDate(comment.createdAt))}</span>
       </div>
-      <p>${escapeHtml(comment.text || "")}</p>
+      ${comment.text ? `<p>${escapeHtml(comment.text)}</p>` : ""}
+      ${imageUrl ? `<figure class="media-frame"><img src="${safeAttr(imageUrl)}" alt="Attachment" referrerpolicy="no-referrer" /></figure>` : ""}
+      ${videoUrl ? `<figure class="media-frame"><iframe src="${safeAttr(videoUrl)}" title="YouTube video player" allowfullscreen></iframe></figure>` : ""}
       ${ownComment ? `<button class="button icon" title="Delete reply" data-action="delete-comment">x</button>` : ""}
     </div>
   `;
@@ -422,9 +434,14 @@ function bindFeed() {
     const messageId = post?.dataset.messageId;
 
     if (form.classList.contains("comment-form")) {
-      const input = form.querySelector('[data-role="comment-input"]');
-      await createComment(messageId, input.value.trim());
-      input.value = "";
+      const text = form.querySelector('[data-role="comment-input"]').value.trim();
+      const imageUrl = form.querySelector('[data-role="comment-image-url"]').value.trim();
+      const videoUrl = form.querySelector('[data-role="comment-video-url"]').value.trim();
+      const file = form.querySelector('[data-role="comment-file"]').files?.[0] || null;
+      if (file && !file.type.startsWith("image/")) {
+        return showToast("Only image files can be attached.");
+      }
+      await createComment(messageId, { text, imageUrl, videoUrl, file });
     }
 
     if (form.classList.contains("edit-form")) {
@@ -477,13 +494,16 @@ async function deletePost(messageId) {
   }
 }
 
-async function createComment(messageId, text) {
+async function createComment(messageId, { text, imageUrl, videoUrl, file }) {
   if (!state.user) return showToast("Connect with Google first.");
-  if (!text) return;
+  if (!text && !imageUrl && !videoUrl && !file) return;
   try {
+    const uploadedUrl = file ? await uploadMedia(file) : "";
     await addDoc(collection(db, "comments"), {
       messageId,
       text,
+      imageUrl: uploadedUrl || imageUrl || null,
+      videoUrl: normalizeVideoUrl(videoUrl) || null,
       authorUid: state.user.uid,
       authorName: state.user.displayName || state.user.email || "Anonymous",
       createdAt: serverTimestamp()
