@@ -134,8 +134,8 @@ function composerTemplate() {
                 <input id="image-url" type="url" placeholder="Image URL or uploaded link" />
                 <input id="video-url" type="url" placeholder="YouTube link" />
                 <label class="button file-input">
-                  <span>Attach</span>
-                  <input id="media-file" type="file" accept="image/*,video/*" ${disabled} />
+                  <span>Attach image</span>
+                  <input id="media-file" type="file" accept="image/*" ${disabled} />
                 </label>
               </div>
               <div class="composer-tools">
@@ -363,8 +363,16 @@ function bindComposer() {
   });
 
   file.addEventListener("change", () => {
-    state.uploadFile = file.files?.[0] || null;
+    const picked = file.files?.[0] || null;
     const helper = document.querySelector("#composer-help");
+    if (picked && !picked.type.startsWith("image/")) {
+      file.value = "";
+      state.uploadFile = null;
+      if (helper) helper.textContent = "Please choose an image file.";
+      showToast("Only image files can be attached.");
+      return;
+    }
+    state.uploadFile = picked;
     if (helper && state.uploadFile) helper.textContent = `Ready: ${state.uploadFile.name}`;
   });
 

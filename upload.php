@@ -32,10 +32,9 @@ $MAX_UPLOAD_MB = 25;
 // "*" allows any site (simplest, least strict).
 $ALLOW_ORIGIN = "*";
 
-// Allowed file types.
+// Allowed file types (images only).
 $ALLOWED_TYPES = [
-  "image/jpeg", "image/png", "image/gif", "image/webp",
-  "video/mp4", "video/webm",
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
 ];
 
 // ── CORS / preflight ───────────────────────────────────────────────────────
@@ -79,7 +78,6 @@ if ($file["size"] > $MAX_UPLOAD_MB * 1024 * 1024) {
 
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
 $mime = finfo_file($finfo, $file["tmp_name"]);
-finfo_close($finfo);
 
 if (!in_array($mime, $ALLOWED_TYPES, true)) {
   fail(415, "File type not allowed: " . $mime);
