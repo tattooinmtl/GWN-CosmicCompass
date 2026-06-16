@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Weather · CosmicCompass</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --bg: #15191c;
+      --bg-strong: #090b0f;
+      --panel: rgb(255 255 255 / 0.055);
+      --line: rgb(255 255 255 / 0.1);
+      --line-strong: rgb(255 255 255 / 0.18);
+      --text: #f4f4f5;
+      --muted: #9ca3af;
+      --primary: #bc13fe;
+      --accent: #00f3ff;
+      --radius: 8px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg-strong);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    .tool-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px;
+      background: rgb(13 17 23 / 0.96);
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+    .tool-bar h1 {
+      font-size: 0.95rem;
+      font-family: "Space Grotesk", Inter, sans-serif;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+    .tool-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .tool-bar .status { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+    #map { flex: 1; min-height: 0; width: 100%; background: #06080f; }
+    .controls {
+      flex-shrink: 0;
+      background: rgb(13 17 23 / 0.96);
+      border-top: 1px solid var(--line);
+      padding: 10px 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .layer-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+    .layer-toggles label {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .layer-toggles input { accent-color: var(--primary); width: 15px; height: 15px; }
+    .layer-toggles label.on { color: var(--text); border-color: rgb(0 243 255 / 0.5); background: rgb(0 243 255 / 0.08); }
+    .anim {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .anim button {
+      min-width: 64px; padding: 6px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--primary), #7810c8);
+      color: #fff; font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    }
+    .anim input[type="range"] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+    .anim .frame-time { font-size: 0.74rem; color: var(--muted); min-width: 132px; text-align: right; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0d1117; color: var(--text); }
+    @media (max-width: 640px) {
+      .anim .frame-time { text-align: left; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="tool-bar">
+    <span class="dot"></span>
+    <h1>Weather Radar</h1>
+    <span class="status" id="status">Loading…</span>
+  </div>
+  <div id="map"></div>
+  <div class="controls">
+    <div class="layer-toggles" id="toggles"></div>
+    <div class="anim">
+      <button id="play">Pause</button>
+      <input type="range" id="timeline" min="0" max="0" value="0" />
+      <span class="frame-time" id="frame-time">—</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const OWM_KEY = "REMOVED_OWM_KEY";
+    const OWM_FALLBACK = "REMOVED_OWM_KEY";
+    const statusEl = document.getElementById("status");
+
+    const map = L.map("map", { worldCopyJump: true }).setView([45.5, -73.6], 6);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; OpenStreetMap &copy; CARTO | Weather: OpenWeatherMap, RainViewer, NOAA',
+      maxZoom: 18
+    }).addTo(map);
+
+    // Center on the user if allowed
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => map.setView([pos.coords.latitude, pos.coords.longitude], 7),
+        () => {}
+      );
+    }
+
+    // ---- OpenWeatherMap overlays (key fallback on repeated tile errors) ----
+    function owmLayer(layerName) {
+      let usingFallback = false, errs = 0;
+      const url = (k) => `https://tile.openweathermap.org/map/${layerName}/{z}/{x}/{y}.png?appid=${k}`;
+      const layer = L.tileLayer(url(OWM_KEY), { opacity: 0.6, zIndex: 4 });
+      layer.on("tileerror", () => {
+        if (!usingFallback && ++errs > 4) {
+          usingFallback = true;
+          layer.setUrl(url(OWM_FALLBACK));
+          statusEl.textContent = "OWM: switched to fallback key";
+        }
+      });
+      return layer;
+    }
+
+    // NOAA nowCOAST radar (US only) — fallback layer, latest frame
+    const noaaLayer = L.tileLayer.wms("https://nowcoast.noaa.gov/geoserver/observations/weather_radar/wms", {
+      layers: "conus_base_reflectivity_mosaic",
+      format: "image/png",
+      transparent: true,
+      opacity: 0.7,
+      version: "1.3.0",
+      zIndex: 3
+    });
+
+    // Toggleable layers (RainViewer animated rain handled separately)
+    const overlays = [
+      { id: "rain", label: "Animated Rain", on: true, kind: "rainviewer" },
+      { id: "precipitation_new", label: "Precipitation", on: false, layer: owmLayer("precipitation_new") },
+      { id: "clouds_new", label: "Clouds", on: false, layer: owmLayer("clouds_new") },
+      { id: "temp_new", label: "Temperature", on: false, layer: owmLayer("temp_new") },
+      { id: "wind_new", label: "Wind", on: false, layer: owmLayer("wind_new") },
+      { id: "pressure_new", label: "Pressure", on: false, layer: owmLayer("pressure_new") },
+      { id: "noaa", label: "NOAA Radar (US)", on: false, layer: noaaLayer }
+    ];
+
+    const togglesEl = document.getElementById("toggles");
+    overlays.forEach((o) => {
+      const label = document.createElement("label");
+      label.className = o.on ? "on" : "";
+      label.innerHTML = `<input type="checkbox" ${o.on ? "checked" : ""} /> ${o.label}`;
+      const cb = label.querySelector("input");
+      cb.addEventListener("change", () => {
+        o.on = cb.checked;
+        label.classList.toggle("on", o.on);
+        if (o.kind === "rainviewer") {
+          o.on ? showRvFrame(rvIndex) : hideRv();
+        } else {
+          o.on ? o.layer.addTo(map) : map.removeLayer(o.layer);
+        }
+      });
+      togglesEl.appendChild(label);
+    });
+
+    // ---- RainViewer animated rain ----
+    const RV_OPACITY = 0.6;
+    let rvHost = "", rvFrames = [], rvLayers = {}, rvIndex = 0, rvPlaying = true, rvTimer = null;
+    const playBtn = document.getElementById("play");
+    const timeline = document.getElementById("timeline");
+    const frameTimeEl = document.getElementById("frame-time");
+
+    function rainOn() { return overlays[0].on; }
+    function frameUrl(f) { return `${rvHost}${f.path}/256/{z}/{x}/{y}/2/1_1.png`; }
+    function getRvLayer(i) {
+      if (!rvLayers[i]) rvLayers[i] = L.tileLayer(frameUrl(rvFrames[i]), { opacity: 0, zIndex: 6 });
+      return rvLayers[i];
+    }
+    function showRvFrame(i) {
+      if (!rvFrames.length || !rainOn()) return;
+      rvIndex = (i + rvFrames.length) % rvFrames.length;
+      rvFrames.forEach((_, idx) => {
+        const layer = getRvLayer(idx);
+        if (!map.hasLayer(layer)) layer.addTo(map);
+        layer.setOpacity(idx === rvIndex ? RV_OPACITY : 0);
+      });
+      timeline.value = String(rvIndex);
+      const t = new Date(rvFrames[rvIndex].time * 1000);
+      frameTimeEl.textContent = t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+        (rvIndex >= rvPastCount ? " (forecast)" : "");
+    }
+    function hideRv() {
+      Object.values(rvLayers).forEach((l) => map.hasLayer(l) && map.removeLayer(l));
+    }
+    let rvPastCount = 0;
+    function startPlay() {
+      rvPlaying = true;
+      playBtn.textContent = "Pause";
+      clearInterval(rvTimer);
+      rvTimer = setInterval(() => rainOn() && showRvFrame(rvIndex + 1), 700);
+    }
+    function stopPlay() {
+      rvPlaying = false;
+      playBtn.textContent = "Play";
+      clearInterval(rvTimer);
+    }
+    playBtn.addEventListener("click", () => (rvPlaying ? stopPlay() : startPlay()));
+    timeline.addEventListener("input", () => { stopPlay(); showRvFrame(parseInt(timeline.value, 10)); });
+
+    async function initRainViewer() {
+      try {
+        const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        rvHost = data.host;
+        const past = data.radar.past || [];
+        const now = data.radar.nowcast || [];
+        rvPastCount = past.length;
+        rvFrames = [...past, ...now];
+        if (!rvFrames.length) throw new Error("no frames");
+        timeline.max = String(rvFrames.length - 1);
+        statusEl.textContent = "Live radar · " + rvFrames.length + " frames";
+        showRvFrame(rvFrames.length - 1);
+        startPlay();
+      } catch (e) {
+        statusEl.textContent = "Radar unavailable (" + e.message + ") — use OWM/NOAA layers";
+      }
+    }
+    initRainViewer();
+  </script>
+</body>
+</html>

@@ -609,6 +609,87 @@ input[type="text"] {
   display: none !important;
 }
 
+/* ===================== Toolbox ===================== */
+
+/* Brand is now a button (click = home) — strip default button chrome */
+.brand {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.toolbox-wrap {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 16px;
+}
+.toolbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.tool-card {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, transform .12s, background .15s;
+}
+.tool-card:hover {
+  border-color: rgb(0 243 255 / 0.5);
+  background: var(--panel-strong);
+  transform: translateY(-2px);
+}
+.tool-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.tool-name {
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.tool-desc {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.tool-open {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* Full-screen tool view (iframe) */
+.tool-frame {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 72px);
+}
+.tool-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px clamp(16px, 4vw, 42px);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-strong);
+  flex-shrink: 0;
+}
+.tool-iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #06080f;
+}
+
 /* ===================== Profile + Messenger ===================== */
 
 .profile-main {

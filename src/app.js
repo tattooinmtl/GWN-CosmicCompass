@@ -30,9 +30,34 @@ const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 const MAX_OPEN_CHATS = 10;
 const GROUP_ICON = "&#9733;"; // ★ marks multi-friend chats
 
+const TOOLS = [
+  {
+    id: "quakes",
+    name: "Quakes",
+    src: "tools/quakes.html",
+    icon: "🌎",
+    desc: "Live worldwide earthquakes from USGS plotted on an interactive map, colour-coded by magnitude."
+  },
+  {
+    id: "stations",
+    name: "Stations",
+    src: "tools/stations.html",
+    icon: "📡",
+    desc: "Live FDSN seismic stations with real-time MiniSEED waveforms and online status dots."
+  },
+  {
+    id: "weather",
+    name: "Weather",
+    src: "tools/weather.html",
+    icon: "🌧️",
+    desc: "Animated rain radar plus OpenWeatherMap overlays — clouds, temperature, wind, pressure."
+  }
+];
+
 const state = {
   user: null,
-  view: "feed", // "feed" | "profile"
+  view: "feed", // "feed" | "profile" | "toolbox"
+  activeTool: null, // null | "quakes" | "stations" | "weather"
   messages: [],
   commentsByMessage: new Map(),
   activeComments: new Set(),
@@ -100,6 +125,7 @@ setTimeout(() => {
 
 function render() {
   const showProfile = state.view === "profile" && state.user;
+  const showToolbox = state.view === "toolbox";
   // Capture focus right before we blow away the DOM, so a background re-render
   // (e.g. an incoming message) only restores focus if a field was actually active.
   const activeFocus = document.activeElement?.getAttribute?.("data-focus") || null;
@@ -107,13 +133,15 @@ function render() {
   app.innerHTML = `
     <main class="app-shell">
       ${topbarTemplate()}
-      ${showProfile ? profileViewTemplate() : feedViewTemplate()}
+      ${showProfile ? profileViewTemplate() : showToolbox ? toolboxViewTemplate() : feedViewTemplate()}
     </main>
   `;
 
   bindTopbar();
   if (showProfile) {
     bindProfile();
+  } else if (showToolbox) {
+    bindToolbox();
   } else {
     bindComposer();
     bindFeed();
@@ -138,6 +166,67 @@ function feedViewTemplate() {
   `;
 }
 
+/* ---- Toolbox view ---- */
+
+function toolboxViewTemplate() {
+  if (state.activeTool) return toolFrameTemplate(state.activeTool);
+  return `
+    <section class="layout toolbox-layout">
+      <div class="toolbox-wrap">
+        <div class="panel-title">
+          <h2>Toolbox</h2>
+          <span class="subtle">Live data tools</span>
+        </div>
+        <div class="toolbox-grid">
+          ${TOOLS.map(toolCard).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function toolCard(tool) {
+  return `
+    <button class="tool-card" data-action="open-tool" data-tool="${safeAttr(tool.id)}">
+      <span class="tool-icon" aria-hidden="true">${tool.icon}</span>
+      <span class="tool-name">${escapeHtml(tool.name)}</span>
+      <span class="tool-desc">${escapeHtml(tool.desc)}</span>
+      <span class="tool-open">Open &rarr;</span>
+    </button>
+  `;
+}
+
+function toolFrameTemplate(toolId) {
+  const tool = TOOLS.find((t) => t.id === toolId);
+  if (!tool) return "";
+  return `
+    <section class="tool-frame">
+      <div class="tool-frame-bar">
+        <button class="button sm" data-action="close-tool">&larr; Toolbox</button>
+        <strong>${tool.icon} ${escapeHtml(tool.name)}</strong>
+      </div>
+      <iframe class="tool-iframe" src="${safeAttr(tool.src)}" title="${safeAttr(tool.name)}" allow="geolocation"></iframe>
+    </section>
+  `;
+}
+
+function bindToolbox() {
+  const root = document.querySelector(".toolbox-layout, .tool-frame");
+  if (!root) return;
+  root.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-action]");
+    if (!trigger) return;
+    const action = trigger.getAttribute("data-action");
+    if (action === "open-tool") {
+      state.activeTool = trigger.getAttribute("data-tool");
+      render();
+    } else if (action === "close-tool") {
+      state.activeTool = null;
+      render();
+    }
+  });
+}
+
 function restoreFocus(focusId) {
   if (!focusId) return;
   const field = document.querySelector(`[data-focus="${focusId}"]`);
@@ -157,20 +246,19 @@ function topbarTemplate() {
   const user = state.user;
   return `
     <header class="topbar">
-      <div class="brand">
+      <button class="brand" data-action="go-feed" title="Home">
         <img src="/public/favicon.png" alt="" />
         <div>
           <h1>${appConfig.appName}</h1>
           <span>Live cosmic signal feed</span>
         </div>
-      </div>
+      </button>
       <div class="actions">
+        <button class="button ${state.view === "toolbox" ? "primary" : ""}" data-action="go-toolbox">Toolbox</button>
         ${
           user
             ? `
-              <button class="button" data-action="${state.view === "profile" ? "go-feed" : "go-profile"}">
-                ${state.view === "profile" ? "Feed" : "Profile"}
-              </button>
+              <button class="button ${state.view === "profile" ? "primary" : ""}" data-action="go-profile">Profile</button>
               <div class="profile-chip">
                 <img src="${safeAttr(profilePhoto() || user.photoURL || avatarDataUrl(user.displayName || "CC"))}" alt="" />
                 <span>${escapeHtml(user.displayName || user.email || "Anonymous")}</span>
@@ -446,6 +534,12 @@ function bindTopbar() {
 
   document.querySelector('[data-action="go-feed"]')?.addEventListener("click", () => {
     state.view = "feed";
+    render();
+  });
+
+  document.querySelector('[data-action="go-toolbox"]')?.addEventListener("click", () => {
+    state.view = "toolbox";
+    state.activeTool = null;
     render();
   });
 }

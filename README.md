@@ -13,6 +13,26 @@ Readable rebuild of the compiled CosmicCompass web app found in `C:\CosmicCompas
 - Profile page (bio + avatar), a friends system (invite → accept, with
   Online/Offline presence), and a private messenger with multiple chat tabs
   (max 10), group chats, clear-messages, and Enter-to-send.
+- Toolbox (top-bar button, open to everyone) with live map tools.
+
+## Toolbox
+
+The **Toolbox** button (top bar, before Profile, visible to everyone) opens a grid
+of tool cards. Each opens full-screen inside the app (embedded, with a Back button).
+Tools are self-contained, CosmicCompass-themed pages under `tools/`:
+
+- **Quakes** (`tools/quakes.html`) — recent USGS earthquakes on a Leaflet map,
+  colour/size-coded by magnitude, with range + magnitude filters.
+- **Stations** (`tools/stations.html`) — the FDSN/MiniSEED live seismic-station
+  viewer (functional JS kept intact, only re-skinned to the cosmic theme).
+- **Weather** (`tools/weather.html`) — Leaflet map with **RainViewer** animated rain
+  (bottom play/timeline), plus toggleable **OpenWeatherMap** overlays
+  (precipitation, clouds, temperature, wind, pressure) and a NOAA radar fallback
+  layer. OWM keys are embedded client-side (unavoidable on a static site).
+
+These pages use external CDNs (Leaflet) and public data APIs (USGS, FDSN data
+centers, RainViewer, OpenWeatherMap, NOAA). Upload the whole `tools/` folder to the
+site root alongside `index.html` and `src/`.
 
 ## Profile + private messenger
 

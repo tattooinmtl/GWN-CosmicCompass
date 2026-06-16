@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quakes · CosmicCompass</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --bg: #15191c;
+      --bg-strong: #090b0f;
+      --panel: rgb(255 255 255 / 0.055);
+      --line: rgb(255 255 255 / 0.1);
+      --line-strong: rgb(255 255 255 / 0.18);
+      --text: #f4f4f5;
+      --muted: #9ca3af;
+      --primary: #bc13fe;
+      --accent: #00f3ff;
+      --danger: #ff4d6d;
+      --warn: #fb923c;
+      --good: #10b981;
+      --radius: 8px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg-strong);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    .tool-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: rgb(13 17 23 / 0.96);
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .tool-bar h1 {
+      font-size: 0.95rem;
+      font-family: "Space Grotesk", Inter, sans-serif;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+    .tool-bar .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--danger); box-shadow: 0 0 8px var(--danger);
+    }
+    .tool-bar .status { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+    #map { flex: 1; min-height: 0; width: 100%; background: #06080f; }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 16px;
+      background: rgb(13 17 23 / 0.96);
+      border-top: 1px solid var(--line);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .controls label {
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .controls select {
+      padding: 6px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--line-strong);
+      background: var(--bg-strong);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.8rem;
+    }
+    .legend { display: flex; gap: 12px; align-items: center; margin-left: auto; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--muted); }
+    .legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0d1117; color: var(--text); }
+    .leaflet-popup-content { font-size: 0.82rem; }
+    .leaflet-popup-content a { color: var(--accent); }
+    .q-pop strong { color: var(--accent); }
+    @media (max-width: 640px) {
+      .controls { gap: 10px; }
+      .legend { margin-left: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="tool-bar">
+    <span class="dot"></span>
+    <h1>Live Earthquakes</h1>
+    <span class="status" id="status">Loading USGS feed…</span>
+  </div>
+  <div id="map"></div>
+  <div class="controls">
+    <label>Range
+      <select id="range">
+        <option value="all_hour.geojson">Past hour</option>
+        <option value="all_day.geojson" selected>Past day</option>
+        <option value="all_week.geojson">Past week</option>
+        <option value="2.5_month.geojson">M2.5+ month</option>
+      </select>
+    </label>
+    <label>Min magnitude
+      <select id="minmag">
+        <option value="0">All</option>
+        <option value="2.5">2.5+</option>
+        <option value="4.5">4.5+</option>
+        <option value="6">6+</option>
+      </select>
+    </label>
+    <div class="legend">
+      <span><i style="background:#10b981"></i>&lt; 4</span>
+      <span><i style="background:#fb923c"></i>4–6</span>
+      <span><i style="background:#ff4d6d"></i>6+</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const map = L.map("map", { worldCopyJump: true }).setView([20, 0], 2);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; OpenStreetMap &copy; CARTO | Quakes: USGS',
+      maxZoom: 18
+    }).addTo(map);
+
+    const layer = L.layerGroup().addTo(map);
+    const rangeSel = document.getElementById("range");
+    const magSel = document.getElementById("minmag");
+    const statusEl = document.getElementById("status");
+
+    function colorFor(mag) {
+      if (mag >= 6) return "#ff4d6d";
+      if (mag >= 4) return "#fb923c";
+      return "#10b981";
+    }
+    function radiusFor(mag) {
+      return Math.max(4, (mag || 0) * 3.2);
+    }
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    async function load() {
+      const feed = rangeSel.value;
+      const minMag = parseFloat(magSel.value);
+      statusEl.textContent = "Loading USGS feed…";
+      layer.clearLayers();
+      try {
+        const res = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/" + feed);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        let count = 0, maxMag = 0;
+        for (const f of data.features) {
+          const mag = Number(f.properties.mag || 0);
+          if (mag < minMag) continue;
+          const [lon, lat, depth] = f.geometry.coordinates;
+          if (typeof lat !== "number" || typeof lon !== "number") continue;
+          maxMag = Math.max(maxMag, mag);
+          count++;
+          const when = new Date(f.properties.time).toLocaleString();
+          L.circleMarker([lat, lon], {
+            radius: radiusFor(mag),
+            color: colorFor(mag),
+            weight: 1,
+            fillColor: colorFor(mag),
+            fillOpacity: 0.45
+          }).bindPopup(
+            '<div class="q-pop"><strong>M' + mag.toFixed(1) + "</strong> " + esc(f.properties.place || "Unknown") +
+            "<br>Depth " + Number(depth || 0).toFixed(1) + " km<br>" + esc(when) +
+            '<br><a href="' + esc(f.properties.url || "#") + '" target="_blank" rel="noreferrer">USGS details</a></div>'
+          ).addTo(layer);
+        }
+        statusEl.textContent = count + " events · max M" + maxMag.toFixed(1);
+      } catch (e) {
+        statusEl.textContent = "Failed to load USGS feed (" + e.message + ")";
+      }
+    }
+
+    rangeSel.addEventListener("change", load);
+    magSel.addEventListener("change", load);
+    load();
+    setInterval(load, 1000 * 60 * 2);
+  </script>
+</body>
+</html>

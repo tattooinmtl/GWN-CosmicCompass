@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stations · CosmicCompass</title>
+  <style>
+    /* CosmicCompass theme (replaces the original standalone theme). The
+       functional JavaScript below is unchanged — only the skin/layout differs. */
+    :root {
+      --bg: #15191c;
+      --bg-strong: #090b0f;
+      --panel: #0d1117;
+      --line: rgb(255 255 255 / 0.1);
+      --line-strong: rgb(255 255 255 / 0.18);
+      --text: #f4f4f5;
+      --muted: #9ca3af;
+      --muted-dim: #5a6a8a;
+      --primary: #bc13fe;
+      --accent: #00f3ff;
+      --danger: #ff4d6d;
+      --good: #10b981;
+      --warn: #fb923c;
+      --radius: 8px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg-strong); color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    button { font-family: inherit; cursor: pointer; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+      height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+      background: rgb(13 17 23 / 0.97); border-bottom: 1px solid var(--line);
+    }
+    .topbar .page-lbl { font-size: 12px; font-weight: 700; letter-spacing: .06em;
+      font-family: "Space Grotesk", Inter, sans-serif; color: var(--accent); }
+    .topbar .sub { font-size: 10px; color: var(--muted-dim); letter-spacing: .06em; }
+    .topbar .divider { width: 1px; height: 18px; background: var(--line); }
+    .topbar .ltime { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-left: auto; }
+    .ldot { display: inline-block; width: 7px; height: 7px; background: var(--accent); border-radius: 50%;
+      box-shadow: 0 0 7px var(--accent); flex-shrink: 0; animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: .8 } 60% { transform: scale(2.4); opacity: 0 } }
+
+    .app { position: fixed; top: 46px; left: 0; right: 0; bottom: 0; display: flex; }
+
+    .sidebar { width: 300px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+    .controls { display: flex; gap: 6px; flex-direction: column; }
+    .ctrl-row { display: flex; gap: 6px; }
+    .controls select { flex: 1; padding: 6px 8px; border-radius: 5px;
+      border: 1px solid var(--line-strong); background: var(--bg-strong); color: var(--text); font-size: 12px; }
+    .controls select:focus { outline: none; border-color: var(--accent); }
+    .stats { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-dim); padding: 0 4px; }
+
+    .search-wrap { position: relative; }
+    .search-wrap input { width: 100%; padding: 6px 8px 6px 28px; border-radius: 5px;
+      border: 1px solid var(--line-strong); background: var(--bg-strong); color: var(--text); font-size: 12px; }
+    .search-wrap input:focus { outline: none; border-color: var(--accent); }
+    .search-wrap svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); opacity: .4; pointer-events: none; }
+
+    #station-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+    .station-item { padding: 8px 10px; border-radius: 5px; cursor: pointer;
+      background: var(--bg-strong); border-left: 2px solid transparent; font-size: 12px; transition: background .12s; }
+    .station-item:hover { background: #111620; }
+    .station-item.active { background: rgb(188 19 254 / 0.18); border-left-color: var(--accent); color: #fff; }
+    .station-item .code { font-weight: 700; color: var(--text); letter-spacing: .04em; }
+    .station-item .name { font-size: 10px; color: var(--muted-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .station-item .meta { font-size: 9px; color: #3a4a6a; margin-top: 2px; }
+    .station-item .code-row { display: flex; align-items: center; }
+
+    .msg { padding: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .msg.loading { color: var(--muted-dim); }
+    .msg.error { color: var(--danger); }
+
+    .sdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      margin-right: 7px; margin-top: 2px; background: #2a3550; transition: background .4s; }
+    .sdot.checking { background: #2a3a5a; animation: dot-checking 1s ease-in-out infinite; }
+    .sdot.online { background: var(--good); box-shadow: 0 0 5px var(--good); animation: dot-online 1.6s ease-in-out infinite; }
+    .sdot.offline { background: var(--danger); box-shadow: none; animation: none; }
+    .sdot.partial { background: var(--warn); box-shadow: 0 0 4px var(--warn); animation: dot-partial 2.4s ease-in-out infinite; }
+    @keyframes dot-online { 0%,100% { box-shadow: 0 0 3px var(--good); opacity: 1; } 50% { box-shadow: 0 0 9px var(--good); opacity: .7; } }
+    @keyframes dot-partial { 0%,100% { box-shadow: 0 0 2px var(--warn); opacity: 1; } 50% { box-shadow: 0 0 7px var(--warn); opacity: .6; } }
+    @keyframes dot-checking { 0%,100% { opacity: .25; } 50% { opacity: .75; } }
+
+    .viewer { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #waveform-header { display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+    #waveform-title { font-weight: 700; color: var(--accent); font-size: 14px; letter-spacing: .04em;
+      font-family: "Space Grotesk", Inter, sans-serif; }
+    #waveform-close { background: none; border: none; color: var(--muted-dim); font-size: 18px; cursor: pointer; padding: 4px 8px; transition: color .15s; }
+    #waveform-close:hover { color: var(--danger); }
+    #waveform-time-controls { display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+      background: var(--bg-strong); border-bottom: 1px solid var(--line); flex-shrink: 0; flex-wrap: wrap; }
+    #waveform-live-label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    #waveform-window-btns { display: flex; gap: 4px; }
+    .window-btn { padding: 4px 12px; border-radius: 4px; border: 1px solid var(--line-strong);
+      background: var(--bg-strong); color: var(--muted); font-size: 11px; cursor: pointer;
+      font-weight: 700; letter-spacing: .06em; text-transform: uppercase; transition: all .15s; }
+    .window-btn:hover { border-color: var(--accent); color: var(--text); }
+    .window-btn.active { background: rgb(188 19 254 / 0.18); border-color: var(--accent); color: var(--accent); }
+    #waveform-status { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-dim); margin-left: auto; }
+    #waveform-chart-wrap { flex: 1; min-height: 0; position: relative; background: var(--bg-strong); }
+    #waveform-chart-wrap canvas { width: 100%; height: 100%; position: absolute; inset: 0; display: none; }
+    #waveform-chart-wrap .placeholder { position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; flex-direction: column; gap: 8px; color: var(--muted-dim); font-size: 13px;
+      letter-spacing: .04em; text-transform: uppercase; text-align: center; padding: 16px; }
+    #waveform-chart-wrap .placeholder span { font-size: 10px; color: #3a4a6a; }
+
+    #station-info { display: none; padding: 10px 16px; background: var(--panel); border-top: 1px solid var(--line);
+      flex-shrink: 0; font-size: 11px; color: var(--muted); flex-direction: row; gap: 20px; flex-wrap: wrap; }
+    .info-item .label { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #3a4a6a; }
+    .info-item .value { color: var(--text); font-weight: 700; margin-top: 2px; }
+
+    #station-list::-webkit-scrollbar { width: 4px; }
+    #station-list::-webkit-scrollbar-track { background: var(--bg-strong); }
+    #station-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+
+    /* Mobile: stack sidebar above viewer */
+    @media (max-width: 720px) {
+      .app { flex-direction: column; }
+      .sidebar { width: 100%; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="ldot"></span>
+    <span class="page-lbl">Live Seismic Stations</span>
+    <div class="divider"></div>
+    <span class="sub">FDSN MiniSEED Waveform Viewer</span>
+    <span class="ltime" id="live-time"></span>
+  </div>
+
+  <div class="app">
+    <div class="sidebar">
+      <div class="controls">
+        <div class="ctrl-row">
+          <select id="center-select">
+            <option value="earthscope">EarthScope (US Global)</option>
+            <option value="canada">Earthquakes Canada</option>
+            <option value="ncedc">NCEDC (N. California)</option>
+            <option value="scedc">SCEDC (S. California)</option>
+          </select>
+        </div>
+        <div class="ctrl-row">
+          <select id="network-select"></select>
+        </div>
+        <div class="search-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f0f0f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input id="search-input" type="text" placeholder="Filter stations…" autocomplete="off">
+        </div>
+      </div>
+      <div class="stats" id="stats">Select center + network</div>
+      <div id="station-list"></div>
+    </div>
+
+    <div class="viewer">
+      <div id="waveform-header">
+        <span id="waveform-title">Waveform Viewer</span>
+        <button id="waveform-close" title="Close">&#x2715;</button>
+      </div>
+      <div id="waveform-time-controls">
+        <span id="waveform-live-label">Window:</span>
+        <div id="waveform-window-btns">
+          <button class="window-btn active" data-seconds="60">1 min</button>
+          <button class="window-btn" data-seconds="600">10 min</button>
+          <button class="window-btn" data-seconds="3600">1 hr</button>
+        </div>
+        <span id="waveform-status">Click a station to view live waveform</span>
+      </div>
+      <div id="waveform-chart-wrap">
+        <div class="placeholder" id="placeholder">
+          Select a station
+          <span>Click any station in the list to load its live MiniSEED waveform</span>
+        </div>
+        <canvas id="waveform-canvas"></canvas>
+      </div>
+      <div id="station-info">
+        <div class="info-item"><div class="label">Code</div><div class="value" id="info-code">—</div></div>
+        <div class="info-item"><div class="label">Network</div><div class="value" id="info-net">—</div></div>
+        <div class="info-item"><div class="label">Latitude</div><div class="value" id="info-lat">—</div></div>
+        <div class="info-item"><div class="label">Longitude</div><div class="value" id="info-lon">—</div></div>
+        <div class="info-item"><div class="label">Channel</div><div class="value" id="info-cha">—</div></div>
+        <div class="info-item"><div class="label">Data Center</div><div class="value" id="info-dc">—</div></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ================================================================
+// LIVE CLOCK
+// ================================================================
+function updateClock() {
+  document.getElementById('live-time').textContent =
+    new Date().toUTCString().slice(17, 25) + ' UTC';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ================================================================
+// DATA CENTERS — all FDSN-standard endpoints
+// ================================================================
+const DATA_CENTERS = {
+  earthscope: {
+    label: "EarthScope",
+    stationUrl:    "https://service.earthscope.org/fdsnws/station/1/query",
+    dataselectUrl: "https://service.earthscope.org/fdsnws/dataselect/1/query",
+    networks: {
+      IU: "USGS Global",
+      II: "IRIS / IDA",
+      IC: "IRIS / Cariaco",
+      G:  "GEOSCOPE",
+      US: "US National",
+      AK: "Alaska"
+    }
+  },
+  canada: {
+    label: "Earthquakes Canada",
+    stationUrl:    "https://www.earthquakescanada.nrcan.gc.ca/fdsnws/station/1/query",
+    dataselectUrl: "https://www.earthquakescanada.nrcan.gc.ca/fdsnws/dataselect/1/query",
+    networks: {
+      CN: "Canadian National"
+    }
+  },
+  ncedc: {
+    label: "NCEDC",
+    stationUrl:    "https://service.ncedc.org/fdsnws/station/1/query",
+    dataselectUrl: "https://service.ncedc.org/fdsnws/dataselect/1/query",
+    networks: {
+      NC: "N. California",
+      BK: "Berkeley",
+      NN: "Nevada"
+    }
+  },
+  scedc: {
+    label: "SCEDC",
+    stationUrl:    "https://service.scedc.caltech.edu/fdsnws/station/1/query",
+    dataselectUrl: "https://service.scedc.caltech.edu/fdsnws/dataselect/1/query",
+    networks: {
+      CI: "S. California",
+      AZ: "Arizona"
+    }
+  }
+};
+
+// ================================================================
+// CHANNEL PRIORITY — ordered by preference for waveform display
+// ================================================================
+const CHANNEL_PRIORITY = ["BHZ","HHZ","EHZ","SHZ","LHZ","BH1","BH2"];
+
+// ================================================================
+// STATE
+// ================================================================
+let currentStation    = null;
+let currentStream     = null;
+let currentWindowSec  = 60;
+let liveTimer         = null;
+let allStations       = [];
+let filteredStations  = [];
+
+const stationStatus = new Map();
+let statusSweepToken = null;
+
+// ================================================================
+// DOM REFS
+// ================================================================
+const centerSel    = document.getElementById("center-select");
+const networkSel   = document.getElementById("network-select");
+const stationList  = document.getElementById("station-list");
+const statsEl      = document.getElementById("stats");
+const titleEl      = document.getElementById("waveform-title");
+const statusEl     = document.getElementById("waveform-status");
+const canvas       = document.getElementById("waveform-canvas");
+const placeholder  = document.getElementById("placeholder");
+const searchInput  = document.getElementById("search-input");
+const stationInfo  = document.getElementById("station-info");
+
+// ================================================================
+// NETWORK SELECTOR
+// ================================================================
+function populateNetworks() {
+  const c = DATA_CENTERS[centerSel.value];
+  networkSel.innerHTML = "";
+  for (const [code, label] of Object.entries(c.networks)) {
+    const o = document.createElement("option");
+    o.value = code;
+    o.textContent = code + " — " + label;
+    networkSel.appendChild(o);
+  }
+}
+
+centerSel.addEventListener("change", () => { populateNetworks(); loadStations(); });
+networkSel.addEventListener("change", () => loadStations());
+populateNetworks();
+
+// ================================================================
+// SEARCH / FILTER
+// ================================================================
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.trim().toLowerCase();
+  filteredStations = q
+    ? allStations.filter(s =>
+        s.code.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.sta.toLowerCase().includes(q))
+    : allStations;
+  renderStations();
+  updateStats();
+});
+
+// ================================================================
+// FETCH HELPER
+// ================================================================
+function fetchWithTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const tid   = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal })
+    .finally(() => clearTimeout(tid));
+}
+
+// ================================================================
+// LOAD STATIONS
+// ================================================================
+async function loadStations() {
+  const c   = DATA_CENTERS[centerSel.value];
+  const net = networkSel.value;
+
+  stationList.innerHTML = '<div class="msg loading">Loading stations…</div>';
+  statsEl.textContent   = "Loading…";
+  searchInput.value     = "";
+  clearWaveform();
+
+  statusSweepToken = {};
+  stationStatus.clear();
+
+  const urls = [
+    c.stationUrl + "?net="     + encodeURIComponent(net) + "&format=text&level=station",
+    c.stationUrl + "?network=" + encodeURIComponent(net) + "&format=text&level=station"
+  ];
+
+  let text = "";
+  let lastStatus = "";
+
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url, 12000);
+      lastStatus = res.status;
+      if (res.ok) { text = await res.text(); break; }
+    } catch (e) {
+      lastStatus = e.message;
+      continue;
+    }
+  }
+
+  if (!text) {
+    stationList.innerHTML =
+      '<div class="msg error">Could not load stations (HTTP ' + esc(String(lastStatus)) + ')<br>' +
+      '<span style="font-size:9px;opacity:.6">' + esc(urls[0]) + '</span></div>';
+    statsEl.textContent = "Error loading stations";
+    return;
+  }
+
+  const rows = text.split("\n").filter(l => l && !l.startsWith("#"));
+
+  const seen = new Set();
+  allStations = rows.map(r => {
+    const p = r.split("|");
+    if (p.length < 6) return null;
+    const key = p[0] + "." + p[1];
+    if (seen.has(key)) return null;
+    seen.add(key);
+    return {
+      code: key,
+      net:  p[0],
+      sta:  p[1],
+      lat:  parseFloat(p[2]),
+      lon:  parseFloat(p[3]),
+      elev: parseFloat(p[4]),
+      name: (p[5] || "").trim()
+    };
+  }).filter(Boolean);
+
+  if (allStations.length === 0) {
+    stationList.innerHTML = '<div class="msg error">No stations returned for network ' + esc(net) + '</div>';
+    statsEl.textContent   = "No stations";
+    return;
+  }
+
+  filteredStations = allStations;
+  renderStations();
+  updateStats();
+
+  const myToken = statusSweepToken;
+  sweepStationStatus(allStations, myToken);
+}
+
+// ================================================================
+// RENDER STATION LIST
+// ================================================================
+function renderStations() {
+  stationList.innerHTML = "";
+  if (filteredStations.length === 0) {
+    stationList.innerHTML = '<div class="msg loading">No stations match</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const s of filteredStations) {
+    const div = document.createElement("div");
+    div.className = "station-item" +
+      (currentStation && currentStation.code === s.code ? " active" : "");
+    div.dataset.code = s.code;
+
+    const knownStatus = stationStatus.get(s.code) || "pending";
+
+    div.innerHTML =
+      '<div class="code-row">' +
+        '<span class="sdot ' + dotClass(knownStatus) + '" title="' + dotTitle(knownStatus) + '"></span>' +
+        '<span class="code">' + esc(s.code) + '</span>' +
+      '</div>' +
+      '<div class="name">' + esc(s.name) + '</div>' +
+      '<div class="meta">' + s.lat.toFixed(3) + '°, ' + s.lon.toFixed(3) + '°</div>';
+
+    div.addEventListener("click", () => openStation(s, div));
+    frag.appendChild(div);
+  }
+  stationList.appendChild(frag);
+}
+
+function dotClass(status) {
+  if (status === "online")   return "sdot online";
+  if (status === "offline")  return "sdot offline";
+  if (status === "partial")  return "sdot partial";
+  if (status === "checking") return "sdot checking";
+  return "sdot";
+}
+
+function dotTitle(status) {
+  if (status === "online")   return "Online — live MiniSEED data available";
+  if (status === "offline")  return "Offline — no data in last 24 h";
+  if (status === "partial")  return "Partial — station registered but no recent waveform data";
+  if (status === "checking") return "Checking…";
+  return "Status unknown";
+}
+
+function updateDot(code, status) {
+  stationStatus.set(code, status);
+  const item = stationList.querySelector('[data-code="' + code + '"]');
+  if (!item) return;
+  const dot = item.querySelector(".sdot");
+  if (!dot) return;
+  dot.className = dotClass(status);
+  dot.title     = dotTitle(status);
+}
+
+function updateStats() {
+  const c = DATA_CENTERS[centerSel.value];
+  const net = networkSel.value;
+  const showing = filteredStations.length;
+  const total   = allStations.length;
+  statsEl.textContent = showing === total
+    ? total + " stations · " + c.label + " · " + net
+    : showing + " / " + total + " stations · " + net;
+}
+
+// ================================================================
+// OPEN STATION
+// ================================================================
+async function openStation(station, el) {
+  currentStation = station;
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  clearWaveform();
+
+  document.querySelectorAll(".station-item").forEach(e => e.classList.remove("active"));
+  if (el) el.classList.add("active");
+
+  titleEl.textContent   = station.code + " · " + station.name;
+  statusEl.textContent  = "Discovering channels…";
+  placeholder.style.display = "flex";
+  placeholder.innerHTML = 'Discovering channels for <strong style="color:#00f3ff">' +
+    esc(station.code) + '</strong><span>Checking FDSN channel availability…</span>';
+
+  document.getElementById("info-code").textContent = station.sta;
+  document.getElementById("info-net").textContent  = station.net;
+  document.getElementById("info-lat").textContent  = station.lat.toFixed(4) + "°";
+  document.getElementById("info-lon").textContent  = station.lon.toFixed(4) + "°";
+  document.getElementById("info-dc").textContent   = DATA_CENTERS[centerSel.value].label;
+  document.getElementById("info-cha").textContent  = "—";
+  stationInfo.style.display = "flex";
+
+  const stream = await discoverStream(station);
+  if (!stream) {
+    statusEl.textContent = "No live channels available";
+    placeholder.innerHTML = 'No live MiniSEED stream found<span>' + esc(station.code) + ' — try another station</span>';
+    return;
+  }
+
+  currentStream = stream;
+  document.getElementById("info-cha").textContent = stream.cha + " / " + stream.loc;
+  statusEl.textContent = "Live · " + stream.cha + "/" + stream.loc + "…";
+
+  await doFetch();
+  if (liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(doFetch, 10000);
+}
+
+// ================================================================
+// DISCOVER BEST AVAILABLE CHANNEL
+// ================================================================
+async function discoverStream(station) {
+  const c     = DATA_CENTERS[centerSel.value];
+  const start = new Date(Date.now() - 86400000).toISOString();
+  const end   = new Date().toISOString();
+
+  const urls = [
+    c.stationUrl + "?level=channel&format=text&net="     + encodeURIComponent(station.net) + "&sta=" + encodeURIComponent(station.sta) + "&starttime=" + encodeURIComponent(start) + "&endtime=" + encodeURIComponent(end),
+    c.stationUrl + "?level=channel&format=text&network=" + encodeURIComponent(station.net) + "&station=" + encodeURIComponent(station.sta) + "&starttime=" + encodeURIComponent(start) + "&endtime=" + encodeURIComponent(end)
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const text = await res.text();
+      const chs = text.split("\n")
+        .filter(l => l && !l.startsWith("#"))
+        .map(r => r.split("|"))
+        .filter(p => p.length >= 4);
+
+      for (const cName of CHANNEL_PRIORITY) {
+        const match = chs.find(p => p[3] === cName);
+        if (!match) continue;
+        const loc = (match[2] && match[2] !== "--") ? match[2] : "*";
+        const ok = await testData(station, cName, loc);
+        if (ok) return { cha: cName, loc };
+      }
+    } catch { continue; }
+  }
+  return null;
+}
+
+// ================================================================
+// FETCH MiniSEED
+// ================================================================
+function getDataselectCandidates() {
+  const active  = DATA_CENTERS[centerSel.value];
+  const others  = Object.values(DATA_CENTERS).filter(c => c.dataselectUrl !== active.dataselectUrl);
+  return [
+    { label: active.label, url: active.dataselectUrl },
+    ...others.map(c => ({ label: c.label, url: c.dataselectUrl }))
+  ];
+}
+
+async function fetchFromAny(station, cha, loc, windowSec) {
+  const end   = new Date();
+  const start = new Date(end.getTime() - windowSec * 1000);
+  const si    = start.toISOString().replace("Z", "");
+  const ei    = end.toISOString().replace("Z", "");
+
+  for (const ep of getDataselectCandidates()) {
+    const u = ep.url +
+      "?net="       + encodeURIComponent(station.net) +
+      "&sta="       + encodeURIComponent(station.sta) +
+      "&loc="       + encodeURIComponent(loc) +
+      "&cha="       + encodeURIComponent(cha) +
+      "&starttime=" + encodeURIComponent(si) +
+      "&endtime="   + encodeURIComponent(ei) +
+      "&format=miniseed";
+    try {
+      const r = await fetchWithTimeout(u, 8000);
+      if (!r.ok) continue;
+      const b = await r.arrayBuffer();
+      if (b.byteLength > 0) return b;
+    } catch { continue; }
+  }
+  return null;
+}
+
+async function testData(station, cha, loc) {
+  const buf = await fetchFromAny(station, cha, loc, 60);
+  return buf !== null && buf.byteLength > 0;
+}
+
+// ================================================================
+// FETCH + RENDER WAVEFORM
+// ================================================================
+async function doFetch() {
+  if (!currentStation || !currentStream) return;
+  try {
+    const buf = await fetchFromAny(currentStation, currentStream.cha, currentStream.loc, currentWindowSec);
+    if (!buf || buf.byteLength === 0) {
+      statusEl.textContent = "No MiniSEED data currently available";
+      return;
+    }
+    const parsed = parseMiniSEED(new Uint8Array(buf), 50000);
+    if (!parsed || parsed.length === 0) {
+      statusEl.textContent = "No samples in MiniSEED data";
+      return;
+    }
+    const step = Math.ceil(parsed.length / 5000);
+    const ds   = parsed.filter((_, i) => i % step === 0);
+    drawWaveform(ds);
+    statusEl.textContent =
+      currentStation.code + " · " + currentStream.cha + "/" + currentStream.loc +
+      " · " + parsed.length.toLocaleString() + " pts";
+  } catch {
+    statusEl.textContent = "Waveform fetch failed";
+  }
+}
+
+// ================================================================
+// DRAW WAVEFORM
+// ================================================================
+function drawWaveform(data) {
+  const parent = canvas.parentElement;
+  const rect   = parent.getBoundingClientRect();
+  canvas.width  = rect.width;
+  canvas.height = rect.height;
+
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#06080f";
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = "#1e2535";
+  ctx.lineWidth   = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, h * i / 4);
+    ctx.lineTo(w, h * i / 4);
+    ctx.stroke();
+  }
+
+  let min = Infinity, max = -Infinity;
+  for (const v of data) { if (v < min) min = v; if (v > max) max = v; }
+  const range  = max - min || 1;
+  const mid    = (max + min) / 2;
+  const padded = range * 1.2;
+  const yMin   = mid - padded / 2;
+  const yMax   = mid + padded / 2;
+
+  ctx.strokeStyle = "#00f3ff";
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((data[i] - yMin) / (yMax - yMin)) * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = "#2d3650";
+  ctx.lineWidth   = 0.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#3a4a6a";
+  ctx.font      = "9px Arial";
+  ctx.fillText(formatAmp(yMax), 4, 12);
+  ctx.fillText(formatAmp(yMin), 4, h - 4);
+
+  placeholder.style.display = "none";
+  canvas.style.display      = "block";
+}
+
+function formatAmp(v) {
+  if (Math.abs(v) >= 1e6)  return (v / 1e6).toFixed(1) + "M";
+  if (Math.abs(v) >= 1e3)  return (v / 1e3).toFixed(1) + "k";
+  return v.toFixed(0);
+}
+
+function clearWaveform() {
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.style.display      = "none";
+  placeholder.style.display = "flex";
+}
+
+// ================================================================
+// CLOSE BUTTON
+// ================================================================
+document.getElementById("waveform-close").addEventListener("click", () => {
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  currentStation = null;
+  currentStream  = null;
+  titleEl.textContent  = "Waveform Viewer";
+  statusEl.textContent = "Click a station to view live waveform";
+  placeholder.style.display = "flex";
+  placeholder.innerHTML = 'Select a station<span>Click any station in the list to load its live MiniSEED waveform</span>';
+  canvas.style.display  = "none";
+  stationInfo.style.display = "none";
+  document.querySelectorAll(".station-item").forEach(el => el.classList.remove("active"));
+});
+
+// ================================================================
+// TIME WINDOW BUTTONS
+// ================================================================
+document.getElementById("waveform-window-btns").addEventListener("click", e => {
+  const btn = e.target.closest(".window-btn");
+  if (!btn) return;
+  document.querySelectorAll(".window-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentWindowSec = parseInt(btn.dataset.seconds, 10);
+  if (currentStation && currentStream) doFetch();
+});
+
+// ================================================================
+// STATUS SWEEP
+// ================================================================
+const STATUS_BATCH = 4;
+
+async function probeStation(station, token) {
+  if (token !== statusSweepToken) return;
+
+  const end   = new Date();
+  const start = new Date(end.getTime() - 120 * 1000);
+  const si    = start.toISOString().replace("Z", "");
+  const ei    = end.toISOString().replace("Z", "");
+
+  for (const ep of getDataselectCandidates()) {
+    if (token !== statusSweepToken) return;
+    const u = ep.url +
+      "?net="       + encodeURIComponent(station.net) +
+      "&sta="       + encodeURIComponent(station.sta) +
+      "&loc=*&cha=BHZ,HHZ,EHZ,SHZ,LHZ" +
+      "&starttime=" + encodeURIComponent(si) +
+      "&endtime="   + encodeURIComponent(ei) +
+      "&format=miniseed";
+    try {
+      const r = await fetchWithTimeout(u, 6000);
+      if (token !== statusSweepToken) return;
+      if (!r.ok) {
+        updateDot(station.code, r.status === 404 || r.status === 204 ? "offline" : "partial");
+        return;
+      }
+      const b = await r.arrayBuffer();
+      if (token !== statusSweepToken) return;
+      updateDot(station.code, b.byteLength > 0 ? "online" : "partial");
+      return;
+    } catch {
+      continue;
+    }
+  }
+  if (token !== statusSweepToken) return;
+  updateDot(station.code, "offline");
+}
+
+async function sweepStationStatus(stations, token) {
+  for (const s of stations) {
+    if (token !== statusSweepToken) return;
+    updateDot(s.code, "checking");
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  for (let i = 0; i < stations.length; i += STATUS_BATCH) {
+    if (token !== statusSweepToken) return;
+    const batch = stations.slice(i, i + STATUS_BATCH);
+    await Promise.all(batch.map(s => probeStation(s, token)));
+    if (token === statusSweepToken) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+}
+
+// ================================================================
+// MINISEED PARSER
+// ================================================================
+function parseMiniSEED(data, maxSamples = 50000) {
+  const all = [];
+  let off   = 0;
+  const dv  = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  while (off + 64 <= data.byteLength) {
+    try {
+      const rec = parseRecord(dv, data, off);
+      if (!rec) break;
+      if (!isFinite(rec.len) || rec.len < 64) break;
+      if (off + rec.len > data.byteLength) break;
+      const prev = off;
+      for (const s of rec.samples) {
+        all.push(s);
+        if (all.length >= maxSamples) break;
+      }
+      off += rec.len;
+      if (off <= prev) break;
+      if (all.length >= maxSamples) break;
+    } catch { break; }
+  }
+  return all;
+}
+
+function parseRecord(dv, data, off) {
+  if (off + 48 > dv.byteLength) return null;
+  const ns  = dv.getInt16(off + 30, false);
+  const dbo = dv.getUint16(off + 44, false);
+  const bbo = dv.getUint16(off + 46, false);
+  if (ns <= 0 || dbo === 0) return null;
+
+  let rl = 4096, enc = 11;
+  if (bbo > 0 && bbo < 512) {
+    let bo = off + bbo;
+    for (let i = 0; i < 10; i++) {
+      if (bo + 4 > dv.byteLength) break;
+      const bt = dv.getUint16(bo, false);
+      const nb = dv.getUint16(bo + 2, false);
+      if (bt === 1000 && bo + 8 <= dv.byteLength) {
+        enc = dv.getUint8(bo + 4);
+        rl  = Math.pow(2, dv.getUint8(bo + 6));
+        break;
+      }
+      if (nb === 0 || nb <= bo - off) break;
+      bo = off + nb;
+    }
+  }
+  if (!isFinite(rl) || rl < 64 || rl > 65536) return null;
+  if (dbo >= rl || off + rl > dv.byteLength)  return null;
+  return { samples: decodeSamples(dv, data, off + dbo, ns, rl, enc), len: rl };
+}
+
+function decodeSamples(dv, _data, doff, ns, _rl, enc) {
+  const s = [];
+  if (enc === 1) {
+    for (let i = 0; i < ns; i++) {
+      const p = doff + i * 2;
+      if (p + 2 > dv.byteLength) break;
+      s.push(dv.getInt16(p, false));
+    }
+  } else if (enc === 3 || enc === 11) {
+    for (let i = 0; i < ns; i++) {
+      const p = doff + i * 4;
+      if (p + 4 > dv.byteLength) break;
+      s.push(dv.getInt32(p, false));
+    }
+  } else if (enc === 4 || enc === 12) {
+    for (let i = 0; i < ns; i++) {
+      const p = doff + i * 4;
+      if (p + 4 > dv.byteLength) break;
+      s.push(dv.getFloat32(p, false));
+    }
+  } else if (enc === 5) {
+    for (let i = 0; i < ns; i++) {
+      const p = doff + i * 8;
+      if (p + 8 > dv.byteLength) break;
+      s.push(dv.getFloat64(p, false));
+    }
+  } else if (enc === 10 || enc === 19) {
+    return decodeSteim(dv, doff, ns);
+  } else {
+    for (let i = 0; i < ns; i++) {
+      const p = doff + i * 4;
+      if (p + 4 > dv.byteLength) break;
+      s.push(dv.getInt32(p, false));
+    }
+  }
+  return s;
+}
+
+function decodeSteim(dv, doff, ns) {
+  const s = [];
+  let last  = 0;
+  let fo    = doff;
+  let first = true;
+  while (s.length < ns && fo + 64 <= dv.byteLength) {
+    const cw = dv.getUint32(fo, false);
+    for (let w = 1; w <= 15 && s.length < ns; w++) {
+      const dn = (cw >>> (30 - w * 2)) & 3;
+      const wv = dv.getInt32(fo + w * 4, false);
+      if (first && w === 1) { last = wv; first = false; continue; }
+      if (w === 2 && fo === doff) continue;
+      if (dn === 0) continue;
+      if (dn === 1) {
+        for (let b = 3; b >= 0 && s.length < ns; b--) {
+          const d = (wv >> (b * 8)) & 255;
+          last += (d & 128) ? d - 256 : d;
+          s.push(last);
+        }
+      } else if (dn === 2) {
+        for (let b = 1; b >= 0 && s.length < ns; b--) {
+          const r = (wv >> (b * 16)) & 65535;
+          last += r > 32767 ? r - 65536 : r;
+          s.push(last);
+        }
+      } else if (dn === 3) {
+        last += wv;
+        s.push(last);
+      }
+    }
+    fo += 64;
+  }
+  return s;
+}
+
+// ================================================================
+// UTILITIES
+// ================================================================
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// ================================================================
+// BOOT
+// ================================================================
+loadStations();
+</script>
+</body>
+</html>
