@@ -103,8 +103,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const OWM_KEY = "REMOVED_OWM_KEY";
-    const OWM_FALLBACK = "REMOVED_OWM_KEY";
     const statusEl = document.getElementById("status");
 
     const map = L.map("map", { worldCopyJump: true }).setView([45.5, -73.6], 6);
@@ -122,18 +120,14 @@
     }
 
     // ---- OpenWeatherMap overlays (key fallback on repeated tile errors) ----
+    // Overlays load through our PHP proxy (owm-proxy.php), which holds the API
+    // key server-side (in MySQL). The key never reaches the browser, and the
+    // proxy handles the primary/fallback key swap itself.
     function owmLayer(layerName) {
-      let usingFallback = false, errs = 0;
-      const url = (k) => `https://tile.openweathermap.org/map/${layerName}/{z}/{x}/{y}.png?appid=${k}`;
-      const layer = L.tileLayer(url(OWM_KEY), { opacity: 0.6, zIndex: 4 });
-      layer.on("tileerror", () => {
-        if (!usingFallback && ++errs > 4) {
-          usingFallback = true;
-          layer.setUrl(url(OWM_FALLBACK));
-          statusEl.textContent = "OWM: switched to fallback key";
-        }
+      return L.tileLayer(`owm-proxy.php?layer=${layerName}&z={z}&x={x}&y={y}`, {
+        opacity: 0.6,
+        zIndex: 4
       });
-      return layer;
     }
 
     // NOAA nowCOAST radar (US only) — fallback layer, latest frame

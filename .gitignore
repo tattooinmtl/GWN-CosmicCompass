@@ -1,6 +1,14 @@
 # Server-side uploaded media (lives on FastComet, not in the repo)
 uploads/
 
+# Server-side SECRETS — never commit. DB creds + API keys live ONLY on the
+# server in /home/globalw4/public_html/2026/secure/ (config.php, db.php).
+config.php
+src/config.php
+src/db.php
+secure/
+*.secret.php
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
