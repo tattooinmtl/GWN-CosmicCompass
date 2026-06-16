@@ -14,13 +14,10 @@
  *     DB_HOST / DB_USER / DB_PASS / DB_NAME / DB_PORT.
  */
 
-// Load DB credentials from the secure folder (first readable path wins).
-$configPaths = [
-  '/home/globalw4/public_html/2026/secure/config.php',
-  __DIR__ . '/owm-config.php', // optional local fallback (gitignored)
-];
-foreach ($configPaths as $p) {
-  if (is_readable($p)) { require_once $p; break; }
+// DB credentials live in the secure folder, outside this app.
+$secureConfig = '/home/globalw4/public_html/2026/secure/config.php';
+if (is_readable($secureConfig)) {
+  require_once $secureConfig;
 }
 
 // Only these layers may be proxied.
