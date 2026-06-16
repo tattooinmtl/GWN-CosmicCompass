@@ -12,16 +12,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocs,
   getFirestore,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  updateDoc
+  setDoc,
+  updateDoc,
+  where
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
 
@@ -37,15 +43,21 @@ export const analyticsReady = firebaseConfig.measurementId
 
 export const firestore = {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  updateDoc
+  setDoc,
+  updateDoc,
+  where
 };
 
 export function listenForAuth(callback) {
