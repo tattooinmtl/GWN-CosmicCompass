@@ -8,6 +8,7 @@ src/config.php
 src/db.php
 secure/
 *.secret.php
+db/api_keys.sql
 
 # OS / editor noise
 .DS_Store

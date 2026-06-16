@@ -57,15 +57,20 @@ function owm_keys(): array {
       $conn = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, $port);
       if ($conn && !$conn->connect_error) {
         // Newest row per service wins (service is not unique in this table).
+        // Accept the label variants we've used: primary = owm / owm_key /
+        // openweather; fallback = owm_fallback / openweather_fallback.
+        $primaryLabels  = ['owm', 'owm_key', 'openweather'];
+        $fallbackLabels = ['owm_fallback', 'openweather_fallback'];
         $res = $conn->query(
           "SELECT service, api_key FROM api_keys " .
-          "WHERE service IN ('openweather','openweather_fallback') ORDER BY id DESC"
+          "WHERE service IN ('owm','owm_key','openweather','owm_fallback','openweather_fallback') " .
+          "ORDER BY id DESC"
         );
         if ($res) {
           while ($row = $res->fetch_assoc()) {
-            if ($row['service'] === 'openweather' && empty($keys['owm_key'])) {
+            if (in_array($row['service'], $primaryLabels, true) && empty($keys['owm_key'])) {
               $keys['owm_key'] = $row['api_key'];
-            } elseif ($row['service'] === 'openweather_fallback' && empty($keys['owm_fallback'])) {
+            } elseif (in_array($row['service'], $fallbackLabels, true) && empty($keys['owm_fallback'])) {
               $keys['owm_fallback'] = $row['api_key'];
             }
           }
