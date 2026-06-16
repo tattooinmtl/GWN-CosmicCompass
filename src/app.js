@@ -580,8 +580,12 @@ async function loadTelemetry() {
 
 function normalizeVideoUrl(url) {
   if (!url) return "";
-  if (url.includes("youtube.com/embed/")) return url;
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  // Pull the 11-char video id out of any YouTube URL shape — watch links
+  // (even with the v= param not first), youtu.be, embed, shorts, live, v —
+  // on any subdomain (www, m, or none). Always rebuild as the embeddable form.
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  );
   return match ? `https://www.youtube.com/embed/${match[1]}` : url;
 }
 
