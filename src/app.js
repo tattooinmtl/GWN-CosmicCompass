@@ -131,7 +131,7 @@ function composerTemplate() {
                 <textarea id="post-text" maxlength="${appConfig.maxPostLength}" placeholder="Transmit an update, link, signal, or field note..."></textarea>
               </div>
               <div class="composer-tools">
-                <input id="image-url" type="url" placeholder="Image URL or Railway returned link" />
+                <input id="image-url" type="url" placeholder="Image URL or uploaded link" />
                 <input id="video-url" type="url" placeholder="YouTube link" />
                 <label class="button file-input">
                   <span>Attach</span>
@@ -139,7 +139,7 @@ function composerTemplate() {
                 </label>
               </div>
               <div class="composer-tools">
-                <span id="composer-help" class="subtle">Railway upload endpoint is ${mediaConfig.uploadEndpoint ? "connected" : "waiting for config"}.</span>
+                <span id="composer-help" class="subtle">Upload endpoint is ${mediaConfig.uploadEndpoint ? "connected" : "waiting for config"}.</span>
                 <span id="char-count" class="subtle">0 / ${appConfig.maxPostLength}</span>
                 <button class="button primary" type="submit">Transmit</button>
               </div>
@@ -174,7 +174,7 @@ function statusTemplate() {
         </div>
         <div class="metric">
           <span>Media relay</span>
-          <strong>${mediaConfig.uploadEndpoint ? "Railway" : "Pending"}</strong>
+          <strong>${mediaConfig.uploadEndpoint ? "Online" : "Pending"}</strong>
         </div>
       </div>
     </section>
@@ -536,7 +536,7 @@ function toggleComments(messageId) {
 
 async function uploadMedia(file) {
   if (!mediaConfig.uploadEndpoint) {
-    throw new Error("Add your Railway uploadEndpoint in src/config.js first.");
+    throw new Error("Add your uploadEndpoint in src/config.js first.");
   }
 
   const form = new FormData();
@@ -545,9 +545,9 @@ async function uploadMedia(file) {
     method: "POST",
     body: form
   });
-  if (!response.ok) throw new Error(`Railway upload returned ${response.status}`);
+  if (!response.ok) throw new Error(`Upload server returned ${response.status}`);
   const payload = await response.json();
-  if (!payload.url) throw new Error("Railway response needs a url field.");
+  if (!payload.url) throw new Error("Upload response needs a url field.");
   return mediaConfig.publicBaseUrl ? new URL(payload.url, mediaConfig.publicBaseUrl).href : payload.url;
 }
 
