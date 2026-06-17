@@ -609,6 +609,166 @@ input[type="text"] {
   display: none !important;
 }
 
+/* ===================== Video calls ===================== */
+
+.cc-call {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: #06080f;
+}
+.cc-call-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px clamp(14px, 4vw, 32px);
+  background: rgb(13 17 23 / 0.96);
+  border-bottom: 1px solid var(--line);
+}
+.cc-call-bar strong {
+  font-family: "Space Grotesk", Inter, sans-serif;
+}
+.cc-call-sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.cc-call-timer {
+  margin-left: auto;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.cc-call-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #06080f;
+}
+.cc-remote {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #06080f;
+}
+.cc-local {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: clamp(96px, 22vw, 200px);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #0d1117;
+  box-shadow: var(--shadow);
+  transform: scaleX(-1); /* mirror own preview */
+}
+.cc-call-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgb(13 17 23 / 0.96);
+  border-top: 1px solid var(--line);
+}
+.cc-call-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--text);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.cc-call-btn:hover {
+  background: rgb(255 255 255 / 0.14);
+}
+.cc-call-btn:active {
+  transform: scale(0.94);
+}
+.cc-call-btn.off {
+  background: rgb(255 77 109 / 0.22);
+  border-color: var(--danger);
+}
+.cc-call-btn.cc-hang {
+  background: linear-gradient(135deg, var(--danger), #c81e3e);
+  border-color: var(--danger);
+}
+.cc-call-btn.cc-accept {
+  background: linear-gradient(135deg, var(--good), #0a8a5f);
+  border-color: var(--good);
+}
+
+/* Incoming-call popup */
+.cc-incoming {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: rgb(4 5 7 / 0.72);
+}
+.cc-incoming-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgb(13 17 23 / 0.98);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.cc-incoming-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.cc-incoming-name {
+  font-family: "Space Grotesk", Inter, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.cc-incoming-sub {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.cc-incoming-actions {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.cc-call-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 95;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: rgb(9 11 15 / 0.96);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 680px) {
+  .cc-call-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.15rem;
+  }
+}
+
 /* ===================== Toolbox ===================== */
 
 /* Brand is now a button (click = home) — strip default button chrome */

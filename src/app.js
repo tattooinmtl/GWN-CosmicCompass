@@ -7,6 +7,7 @@ import {
   signIn,
   signOutUser
 } from "./firebase.js";
+import { placeCall, startCalls, stopCalls } from "./call.js";
 
 const {
   addDoc,
@@ -902,10 +903,12 @@ async function bootPrivate(user) {
   startHeartbeat();
   subscribeRequests();
   subscribeFriends();
+  startCalls({ uid: user.uid, displayName: myName(), photoURL: myPhoto() });
   render();
 }
 
 function teardownPrivate() {
+  stopCalls();
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
   privateUnsubs.splice(0).forEach((fn) => fn());
@@ -1224,6 +1227,7 @@ function chatBodyTemplate() {
           <strong>${escapeHtml(chatLabel(cid))}</strong>
         </div>
         <div class="chat-header-actions">
+          ${conv && !conv.isGroup ? `<button class="button sm" data-action="start-call" title="Video call">📹 Call</button>` : ""}
           <button class="button sm" data-action="add-to-chat">Add friend</button>
           <button class="button sm" data-action="clear-chat">Clear messages</button>
         </div>
@@ -1490,6 +1494,11 @@ async function onProfileClick(event) {
       return closeChat(cid);
     case "clear-chat":
       return clearChat(state.activeChat);
+    case "start-call": {
+      const friend = otherParticipants(state.activeChat)[0];
+      if (friend) placeCall(friend, friendName(friend), friendPhoto(friend), state.activeChat);
+      return;
+    }
     case "add-to-chat":
       state.addToChatOpen = !state.addToChatOpen;
       return render();

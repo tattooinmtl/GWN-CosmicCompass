@@ -14,6 +14,25 @@ Readable rebuild of the compiled CosmicCompass web app found in `C:\CosmicCompas
   Online/Offline presence), and a private messenger with multiple chat tabs
   (max 10), group chats, clear-messages, and Enter-to-send.
 - Toolbox (top-bar button, open to everyone) with live map tools.
+- 1:1 video calls between friends (WebRTC), launched from a DM.
+
+## Video calling (1:1)
+
+Friends can video-call each other from a DM (the **📹 Call** button in the chat
+header). It's pure front-end: `src/call.js` runs the WebRTC peer connection,
+signals through a Firestore `calls` collection (offer/answer + ICE candidate
+subcollections), and renders the call UI as an overlay outside the app's render
+cycle (so the live video survives re-renders).
+
+Connectivity uses:
+- **STUN** (Google public) for direct peer-to-peer.
+- A self-hosted **coturn** TURN server on the VPS for the ~15% of calls behind
+  strict NAT. The browser fetches short-lived TURN credentials from
+  `turn-creds.php`, which signs them with `TURN_SECRET` from the secure config.
+
+Publish the `calls` rules in `firestore.rules` (Firestore may prompt to create one
+composite index for the incoming-call query). No media ever passes through Firebase
+— only the small signaling docs.
 
 ## Toolbox
 

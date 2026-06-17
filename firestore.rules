@@ -88,5 +88,27 @@ service cloud.firestore {
         allow delete: if inConversation(cid);
       }
     }
+
+    // ---- 1:1 video calls (WebRTC signaling) ----
+    // A call + its ICE candidates are readable/writable only by the two parties.
+    match /calls/{callId} {
+      function inCall() {
+        return signedIn()
+          && (resource.data.callerUid == request.auth.uid
+              || resource.data.calleeUid == request.auth.uid);
+      }
+      allow create: if signedIn()
+        && request.resource.data.callerUid == request.auth.uid;
+      allow read, update, delete: if inCall();
+
+      // callerCandidates + calleeCandidates
+      match /{side}/{candId} {
+        allow read, write: if signedIn()
+          && request.auth.uid in [
+            get(/databases/$(database)/documents/calls/$(callId)).data.callerUid,
+            get(/databases/$(database)/documents/calls/$(callId)).data.calleeUid
+          ];
+      }
+    }
   }
 }
